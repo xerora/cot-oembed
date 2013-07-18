@@ -350,6 +350,14 @@ function oembed_parse($match)
 			'formated_return' => $formated_data
 		));
 	}
+	else
+	{
+		if(!empty($match[2]) && $match[2] == '</span>')
+		{
+			// Add the </span> back that was removed from replacement
+			$formated_data = $match[2].$formated_data;
+		}
+	}
 
 	return $formated_data;
 }
