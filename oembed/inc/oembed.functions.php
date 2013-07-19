@@ -34,6 +34,7 @@ $GLOBALS['oembed_current_provider_embed_url'] = '';
 $GLOBALS['oembed_limit_counter'] = 0;
 $GLOBALS['oembed_count_fetch'] = 0;
 $GLOBALS['oembed_formats'] = array('json');
+$GLOBALS['oembed_item_sql'] = '';
 
 if(function_exists('simplexml_load_string'))
 {
@@ -212,7 +213,44 @@ function oembed_parse($match)
 {
 	global $db_oembed_cache, $db, $cfg, $sys, $oembed_area_cache, $oembed_area_cache_used, $oembed_current_area,
 	$oembed_current_item, $oembed_current_pageref, $oembed_current_provider_embed_url, $oembed_limit_counter,
-	$oembed_current_parser, $oembed_count_fetch, $oembed_area_cache_used_all;
+	$oembed_current_parser, $oembed_count_fetch, $oembed_area_cache_used_all, $oembed_item_sql;
+
+	// Only fetch the cache if there is atleast one URL match
+	if(is_null($oembed_area_cache[$oembed_current_area]))
+	{
+		$retrying = FALSE;
+		$expire_sql = '';
+		$retry_sql = '';
+
+		if((int)$cfg['plugin']['oembed']['retry_time'] > 0)
+		{
+			$retrying = TRUE;
+			$retry_invalid_time = ($sys['now'] - $cfg['plugin']['oembed']['retry_time']);
+			$retry_sql = 'oembed_valid=0 AND oembed_added < '.$retry_invalid_time;
+		}
+
+		if((int)$cfg['plugin']['oembed']['expire_cache'] > 0)
+		{
+			$expire_sql = ($retrying) ? ' OR ' : '';
+			$expire_sql .= '(oembed_added < '.($sys['now'] - (int)$cfg['plugin']['oembed']['expire_cache']).')';
+		}
+
+		if((!empty($retry_sql) || !empty($expire_sql)) && !empty($oembed_item_sql))
+		{
+			$sql = $db->query("DELETE FROM $db_oembed_cache WHERE oembed_area=? AND $oembed_item_sql AND oembed_pageref=? AND ".
+				$retry_sql." ".$expire_sql. " ORDER BY oembed_added ASC LIMIT 2", array($oembed_current_item, $oembed_current_pageref));
+		}
+		if(!empty($oembed_item_sql))
+		{
+			$oembed_cache = $db->query("SELECT * FROM $db_oembed_cache ".
+				"WHERE oembed_area=? AND $oembed_item_sql AND oembed_pageref=? ORDER BY oembed_added DESC", array($oembed_current_area, $oembed_current_pageref))->fetchAll();
+			$oembed_area_cache[$oembed_current_area] = oembed_format_cache_rows($oembed_cache);
+		}
+		else
+		{
+			$oembed_area_cache[$oembed_current_area] = array();
+		}
+	}
 
 	$limit = (int)$cfg['plugin']['oembed']['parser_limit'];
 	$isshortcode = false;
@@ -337,7 +375,7 @@ function oembed_parser($area, $item, $text, $pageref = 0, $parser = null, $white
 {
 	global $cfg, $oembed_current_area, $sys, $oembed_area_cache, $oembed_area_cache_used, $db, $db_oembed_cache, 
 	$oembed_providers_whitelist, $oembed_current_item, $oembed_current_pageref, $oembed_current_provider_embed_url,
-	$oembed_limit_counter, $oembed_current_parser, $oembed_area_cache_used_all;
+	$oembed_limit_counter, $oembed_current_parser, $oembed_area_cache_used_all, $oembed_item_sql;
 
 	$oembed_current_area = $area;
 	$oembed_current_parser = !empty($parser) ? $parser : $cfg['parser']; 
@@ -359,12 +397,12 @@ function oembed_parser($area, $item, $text, $pageref = 0, $parser = null, $white
 
 	if(!empty($item['items']) && is_array($item['items']))
 	{
-		$item_sql = "oembed_item IN (".implode(',', $item['items']).")";
+		$oembed_item_sql = "oembed_item IN (".implode(',', $item['items']).")";
 		$item = $item['current'];
 	}
 	else
 	{
-		$item_sql = "oembed_item=".(int)$item."";
+		$oembed_item_sql = "oembed_item=".(int)$item."";
 	}
 
 	$oembed_current_item = $item;
@@ -372,36 +410,6 @@ function oembed_parser($area, $item, $text, $pageref = 0, $parser = null, $white
 	if(is_null($whitelist))
 	{
 		$whitelist = $oembed_providers_whitelist;
-	}
-
-	if(is_null($oembed_area_cache[$area]))
-	{
-		$retrying = FALSE;
-		$expire_sql = '';
-		$retry_sql = '';
-
-		if((int)$cfg['plugin']['oembed']['retry_time'] > 0)
-		{
-			$retrying = TRUE;
-			$retry_invalid_time = ($sys['now'] - $cfg['plugin']['oembed']['retry_time']);
-			$retry_sql = 'oembed_valid=0 AND oembed_added < '.$retry_invalid_time;
-		}
-
-		if((int)$cfg['plugin']['oembed']['expire_cache'] > 0)
-		{
-			$expire_sql = ($retrying) ? ' OR ' : '';
-			$expire_sql .= '(oembed_added < '.($sys['now'] - (int)$cfg['plugin']['oembed']['expire_cache']).')';
-		}
-
-		if(!empty($retry_sql) || !empty($expire_sql))
-		{
-			$sql = $db->query("DELETE FROM $db_oembed_cache WHERE oembed_area=? AND $item_sql AND oembed_pageref=? AND ".
-				$retry_sql." ".$expire_sql. " ORDER BY oembed_added ASC LIMIT 2", array($area, $pageref));
-		}
-
-		$oembed_area_cache[$area] = $db->query("SELECT * FROM $db_oembed_cache ".
-			"WHERE oembed_area=? AND $item_sql AND oembed_pageref=? ORDER BY oembed_added DESC", array($area, $pageref))->fetchAll();
-		$oembed_area_cache[$area] = oembed_format_cache_rows($oembed_area_cache[$area]);
 	}
 
 	if(!empty($whitelist))
@@ -453,6 +461,10 @@ function oembed_parser_cleanup($area)
 	global $db, $sys, $db_oembed_cache, $oembed_area_cache, $oembed_area_cache_used_all;
 	// Clean unused cached embeded items
 	$count = 0;
+	if(is_null($oembed_current_area[$area]) || empty($oembed_current_area[$area]))
+	{
+		return;
+	}
 	$cache_clear = array_diff(array_keys($oembed_area_cache[$area]), $oembed_area_cache_used_all[$area]);
 	if(is_array($cache_clear) && !empty($cache_clear))
 	{
