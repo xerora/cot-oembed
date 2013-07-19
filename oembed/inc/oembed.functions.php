@@ -33,6 +33,12 @@ $GLOBALS['oembed_current_parser'] = '';
 $GLOBALS['oembed_current_provider_embed_url'] = '';
 $GLOBALS['oembed_limit_counter'] = 0;
 $GLOBALS['oembed_count_fetch'] = 0;
+$GLOBALS['oembed_formats'] = array('json');
+
+if(function_exists('simplexml_load_string'))
+{
+	$GLOBALS['oembed_formats'][] = 'xml';
+}
 
 require_once cot_incfile('oembed', 'plug', 'resources');
 
@@ -44,8 +50,12 @@ function oembed_fetch_curl($fetchurl)
 	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 2);
 	curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); // Need to follow "Location" header for providers like Photobucket
 	$response = curl_exec($ch);
+	if(!curl_errno($ch))
+	{
+		$status_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+	}
 	curl_close($ch);
-	return is_string($response) && !empty($response) ? $response: false;
+	return array('status' => $status_code, 'response' => $response);
 }
 
 function oembed_fetch_standard($fetchurl)
@@ -55,113 +65,62 @@ function oembed_fetch_standard($fetchurl)
 			'timeout' => 2
 		))
 	);
-	return is_string($response) && !empty($response) ? $response : false;
+	$headers = oembed_parse_headers($http_response_header);
+	return array('status' => $headers['oembed_status_code'], 'response' => $response);
 }
 
 function oembed_fetch($provider_embed_url, $url, $maxwidth = 0, $maxheight = 0)
 {
-	global $cfg;
+	global $cfg, $oembed_formats;
 
 	if(!oembed_url_validate($url))
 	{
 		return false;
 	}
 
-	$oembed_format = 'json';
 	$url = str_replace('www.', '', $url);
 	$maxwidth = oembed_get_max_width($maxwidth);
 	$maxheight = oembed_get_max_height($maxheight);
 
-	$provider_embed_url = str_replace('{oembed_format}', $oembed_format, $provider_embed_url);
-	$fetchurl = $provider_embed_url.'?url='.urlencode($url).'&format='.$oembed_format
-		.'&maxwidth='.(int)$maxwidth
-		.'&maxheight='.(int)$maxheight;
-
-	switch($cfg['plugin']['oembed']['fetch_method'])
+	foreach($oembed_formats as $format)
 	{
-		case 'standard':
-			$response = oembed_fetch_standard($fetchurl);
-		break;
-		case 'curl':
-			$response = oembed_fetch_curl($fetchurl);
-		break;
+		$_provider_embed_url = str_replace('{oembed_format}', $format, $provider_embed_url);
+		$fetchurl = $_provider_embed_url.'?url='.urlencode($url).'&format='.$format
+			.'&maxwidth='.(int)$maxwidth
+			.'&maxheight='.(int)$maxheight;
+
+		switch($cfg['plugin']['oembed']['fetch_method'])
+		{
+			case 'standard':
+				$fetch = oembed_fetch_standard($fetchurl);
+			break;
+			case 'curl':
+				$fetch = oembed_fetch_curl($fetchurl);
+			break;
+		}
+
+		if($fetch['status'] != 501)
+		{
+			switch($format)
+			{
+				case 'json':
+					$data = oembed_format_json($fetch['response']);
+				break;
+				case 'xml':
+					$data = oembed_format_xml($fetch['response']);
+				break;
+			}
+
+			break;
+		}
 	}
 
-	if(!empty($response))
+	if($data && is_array($data) && !empty($fetch['response']))
 	{
-		$data = json_decode($response);
-		if(is_object($data))
-		{
-			$data = (array)$data;
-			if(!empty($data) && is_array($data))
-			{
-				return $data;
-			}
-		}	
+		return $data;
 	}
 
 	return false;
-}
-
-function oembed_format_cache_rows($rows)
-{
-	$format = array();
-	foreach($rows as $row)
-	{
-		$format[$row['oembed_url']] = $row;
-	}
-	return $format;
-}
-
-function oembed_validate_data($data)
-{
-	if(empty($data['type']))
-	{
-		return 0;
-	}
-	$oembed_valid = 0;
-	switch($data['type'])
-	{
-		case 'video':
-		case 'rich':
-			if(!empty($data['html']) && is_string($data['html']))
-			{
-				$oembed_valid = !empty($data['html']) ? 1 : 0;
-			}
-		break;
-		case 'photo':
-			if(!empty($data['url']) || !empty($data['width']) || !empty($data['height']))
-			{	
-				$oembed_valid = 1;
-			}
-		break;
-		case 'link':
-			if(!empty($data['title']) && is_string($data['title']))
-			{
-				$oembed_valid = 1;
-			}
-		break;
-	}
-	return $oembed_valid;
-}
-
-function oembed_url_validate($url, $valid_schemes = null)
-{
-	if(!empty($valid_schemes) && is_array($valid_schemes))
-	{
-		$schemes = $valid_schemes;
-	}
-	else
-	{
-		$schemes = array('http','https');
-	}
-	$purl = @parse_url($url);
-	if(!$purl || false !== strpos($purl['host'], ':') || !in_array($purl['scheme'], $schemes))
-	{
-		return false;
-	}
-
-	return $url;
 }
 
 function oembed_format_data($data, $maxwidth = 0, $maxheight = 0)
@@ -532,4 +491,97 @@ function oembed_remove($area, $item, $pageref = null)
 		$pageref_sql = " AND oembed_pageref='".(int)$pageref."'";
 	}
 	$db->delete($db_oembed_cache, "oembed_area=? AND oembed_item=?".$pageref, array($area, $item));
+}
+
+function oembed_format_cache_rows($rows)
+{
+	$format = array();
+	foreach($rows as $row)
+	{
+		$format[$row['oembed_url']] = $row;
+	}
+	return $format;
+}
+
+function oembed_validate_data($data)
+{
+	if(empty($data['type']))
+	{
+		return 0;
+	}
+	$oembed_valid = 0;
+	switch($data['type'])
+	{
+		case 'video':
+		case 'rich':
+			if(!empty($data['html']) && is_string($data['html']))
+			{
+				$oembed_valid = !empty($data['html']) ? 1 : 0;
+			}
+		break;
+		case 'photo':
+			if(!empty($data['url']) || !empty($data['width']) || !empty($data['height']))
+			{
+				$oembed_valid = 1;
+			}
+		break;
+		case 'link':
+			if(!empty($data['title']) && is_string($data['title']))
+			{
+				$oembed_valid = 1;
+			}
+		break;
+	}
+	return $oembed_valid;
+}
+
+function oembed_url_validate($url, $valid_schemes = null)
+{
+	if(!empty($valid_schemes) && is_array($valid_schemes))
+	{
+		$schemes = $valid_schemes;
+	}
+	else
+	{
+		$schemes = array('http','https');
+	}
+	$purl = @parse_url($url);
+	if(!$purl || false !== strpos($purl['host'], ':') || !in_array($purl['scheme'], $schemes))
+	{
+		return false;
+	}
+
+	return $url;
+}
+
+function oembed_format_json($response)
+{
+	$data = (array)json_decode($response);
+	if(is_array($data) && !empty($data) && isset($data['version']))
+	{
+		return $data;
+	}
+	return false;
+}
+
+function oembed_format_xml($response)
+{
+	$data = (array)simplexml_load_string($response);
+	if(is_array($data) && !empty($data) && isset($data['version']))
+	{
+		return $data;
+	}
+	return false;
+}
+
+function oembed_parse_headers($headers)
+{
+	$r = array();
+	$status = explode(' ', $headers[0]);
+	foreach($headers as $header)
+	{
+		$h = explode(': ', $header);
+		$r[trim($h[0])] = trim($h[1]);
+	}
+	return $r + array('oembed_status_code' => (int)$status[1]);
 }
