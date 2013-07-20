@@ -66,8 +66,7 @@ function oembed_fetch_standard($fetchurl)
 			'timeout' => 2
 		))
 	);
-	$headers = oembed_parse_headers($http_response_header);
-	return array('status' => $headers['oembed_status_code'], 'response' => $response);
+	return array('status' => oembed_http_status_code($http_response_header[0]), 'response' => $response);
 }
 
 function oembed_fetch($provider_embed_url, $url, $maxwidth = 0, $maxheight = 0)
@@ -586,14 +585,8 @@ function oembed_format_xml($response)
 	return false;
 }
 
-function oembed_parse_headers($headers)
+function oembed_http_status_code($status)
 {
-	$r = array();
-	$status = explode(' ', $headers[0]);
-	foreach($headers as $header)
-	{
-		$h = explode(': ', $header);
-		$r[trim($h[0])] = trim($h[1]);
-	}
-	return $r + array('oembed_status_code' => (int)$status[1]);
+	$status = explode(' ', $status);
+	return (int)$status[1];
 }
