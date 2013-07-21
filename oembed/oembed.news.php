@@ -14,12 +14,13 @@ if($jj == 1)
 	{
 		$oembed_newsids[] = $sql_rowset[$i]['page_id'];
 	}
+
+	$oembed_newsitems = array(
+		'items' => $oembed_newsids
+	);
 }
 
-$oembed_newsitems = array(
-	'current' => $pag['page_id'],
-	'items' => $oembed_newsids
-);
+$oembed_newsitems['current'] = $pag['page_id'];
 
 $news->vars['PAGE_ROW_TEXT'] = oembed_parser('page', $oembed_newsitems, $news->vars['PAGE_ROW_TEXT'], 0, $pag['page_parser']);
 $news->vars['PAGE_ROW_TEXT_CUT'] = oembed_parser('page', $oembed_newsitems, $news->vars['PAGE_ROW_TEXT_CUT'], 0, $pag['page_parser']);
