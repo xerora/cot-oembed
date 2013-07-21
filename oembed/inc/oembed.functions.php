@@ -460,7 +460,7 @@ function oembed_parser_cleanup($area)
 	global $db, $sys, $db_oembed_cache, $oembed_area_cache, $oembed_area_cache_used_all;
 	// Clean unused cached embeded items
 	$count = 0;
-	if(is_null($oembed_current_area[$area]) || empty($oembed_current_area[$area]))
+	if(empty($oembed_area_cache[$area]))
 	{
 		return;
 	}
