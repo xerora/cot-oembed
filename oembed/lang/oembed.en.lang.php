@@ -4,10 +4,7 @@ $L['cfg_parser_action_hint'] = 'How to treat valid whitelisted provider URLs in 
 $L['cfg_parser_limit'] = 'Parse only this many URLs per text body';
 $L['cfg_parser_limit_hint'] = 'Which URLs actually get parsed with the limit are what ever the parser hits first, not the actual order.';
 $L['cfg_fetch_method'] = 'Method to use when fetching data from providers\'';
-$L['cfg_fetch_method_params'] = array(
-	'Standard', 
-	'cURL',
-);
+
 $L['cfg_maxheight'] = 'Maximum height of the media from the provider';
 $L['cfg_maxheight_hint'] = 'In pixels. Providers don\'t have to respect this value, but it will be sent to them regardless.';
 $L['cfg_maxwidth'] = 'Maximum width of the media from the provider';

@@ -3,9 +3,10 @@
 [BEGIN_COT_EXT]
 Name=oEmbed
 Code=oembed
+Category=editor-parser
 Description=Replaces URLs associated with a whitelisted group of providers with embedded media content based on the http://oembed.com format.
 Version=1.0
-Date=2013-july-17
+Date=2013-july-22
 Author=tyler@xaez.org
 Copyright=
 Notes=BSD License
@@ -18,7 +19,7 @@ Recommends_plugins=comments,news
 [END_COT_EXT]
 
 [BEGIN_COT_EXT_CONFIG]
-fetch_method=01:select:standard,curl:standard:
+fetch_method=01:callback:oembed_get_methods():standard:
 parser_limit=02:select:1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25:5:
 maxheight=03:string::500:
 maxwidth=04:string::500:

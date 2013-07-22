@@ -592,3 +592,13 @@ function oembed_http_status_code($status)
 	$status = explode(' ', $status);
 	return (int)$status[1];
 }
+
+function oembed_get_methods()
+{
+	$methods = array('standard');
+	if(function_exists('curl_version'))
+	{
+		$methods[] = 'curl';
+	}
+	return $methods;
+}
