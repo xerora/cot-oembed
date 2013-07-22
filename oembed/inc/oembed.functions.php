@@ -9,7 +9,7 @@ $GLOBALS['oembed_providers_whitelist'] = array(
 	'https?://(www\.)?hulu\.com/watch/[^\s"<]+' => 'http://www.hulu.com/api/oembed.{oembed_format}',
 	'https?://(www\.)?blip\.tv/[^\s"<]+' => 'http://blip.tv/oembed/',
 	'https?://(www\.)?vimeo\.com/[^\s"<]+' => 'http://vimeo.com/api/oembed.{oembed_format}',
-	'https?://(photos\.)?smugmug\.com/[^\s"<]+' => 'http://api.smugmug.com/services/oembed',
+	'https?://(\w+\.)?smugmug\.com/[^\s"<]+' => 'http://api.smugmug.com/services/oembed',
 	'https?://(www\.)?viddler\.com/[^\s"<]+' => 'http://lab.viddler.com/services/oembed/',
 	'https?://(www\.)?qik\.com/[^\s"<]+' => 'http://qik.com/api/oembed.{oembed_format}',
 	'https?://(www\.)?revision3\.com/[^\s"<]+' => 'http://revision3.com/api/oembed/',
@@ -40,6 +40,8 @@ if(function_exists('simplexml_load_string'))
 {
 	$GLOBALS['oembed_formats'][] = 'xml';
 }
+
+global $R;
 
 require_once cot_incfile('oembed', 'plug', 'resources');
 

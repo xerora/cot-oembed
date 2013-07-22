@@ -27,6 +27,11 @@ prevent matching them again for this given length of time.';
 
 $L['cfg_fetch_limit'] = 'Total number of outbound requests to make on a single page load';
 $L['cfg_fetch_limit_hint'] = 'This is just to keep page load times down if there are many uncached items. Items not fetched because of this limit will be grabbed on the next page load.';
+$L['cfg_parse_pagelist'] = 'Parse Pagelist widget text bodies only if they have this many items to display or less';
+$L['cfg_parse_pagelist_hint'] = 'Ignore this if you\'re not using the Pagelist plugin. This will parse URLs
+for Pagelist else it will just strip the BBCode if set to "Don\'t parse".';
+
+$L['cfg_parse_pagelist_params'] = array('Don\'t parse',1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,35,40,45,50);
 
 $L['cfg_retry_time_params'] = array(
 	'Never retry',
