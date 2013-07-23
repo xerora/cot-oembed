@@ -8,7 +8,7 @@ Hooks=comments.loop
 if($kk == 1)
 {
 	require_once cot_incfile('oembed', 'plug');
-	$oembed_requested_comments_count = count($sql->fetchAll());
+	$oembed_requested_comments_count = $sql->rowCount();
 }
 
 $t->vars['COMMENTS_ROW_TEXT'] = oembed_parser('comments_'.$row['com_area'], $row['com_code'], $t->vars['COMMENTS_ROW_TEXT'], $d);
